@@ -3,8 +3,42 @@ import { resolveBinaryPath, resolveFFmpegPath, buildInfoArgs } from "../utils/yt
 import { sanitizeUrl } from "../utils/sanitize";
 import { spawnWithTimeout } from "../utils/process";
 import { buildFormatLabel } from "../utils/format";
+import { sanitizeYtdlpError } from "../utils/errors";
 
 const INFO_TIMEOUT_MS = 30_000;
+const CACHE_TTL_MS = 2 * 60 * 1000;
+const CACHE_MAX_SIZE = 100;
+
+interface CacheEntry {
+  data: MediaInfo;
+  expiresAt: number;
+}
+
+const infoCache = new Map<string, CacheEntry>();
+
+const getCached = (url: string): MediaInfo | null => {
+  const entry = infoCache.get(url);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    infoCache.delete(url);
+    return null;
+  }
+  return entry.data;
+};
+
+const setCache = (url: string, data: MediaInfo): void => {
+  if (infoCache.size >= CACHE_MAX_SIZE) {
+    const now = Date.now();
+    for (const [key, entry] of infoCache) {
+      if (now > entry.expiresAt) infoCache.delete(key);
+    }
+    if (infoCache.size >= CACHE_MAX_SIZE) {
+      const firstKey = infoCache.keys().next().value as string | undefined;
+      if (firstKey !== undefined) infoCache.delete(firstKey);
+    }
+  }
+  infoCache.set(url, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+};
 
 interface YtdlpFormat {
   format_id?: string;
@@ -31,13 +65,18 @@ interface YtdlpInfo {
 const isNoneCodec = (codec: string | undefined): boolean =>
   !codec || codec === "none";
 
+const resolveExt = (raw: YtdlpFormat, hasVideo: boolean, hasAudio: boolean): string => {
+  if (!hasVideo && hasAudio && (raw.ext === "mp4" || raw.ext === "m4a")) return "m4a";
+  return raw.ext ?? "unknown";
+};
+
 const mapFormat = (raw: YtdlpFormat): MediaFormat => {
   const hasAudio = !isNoneCodec(raw.acodec);
   const hasVideo = !isNoneCodec(raw.vcodec);
   const resolution =
     raw.width && raw.height ? `${raw.width}x${raw.height}` : raw.resolution ?? null;
   const filesize = raw.filesize ?? raw.filesize_approx ?? null;
-  const ext = raw.ext ?? "unknown";
+  const ext = resolveExt(raw, hasVideo, hasAudio);
 
   return {
     id: raw.format_id ?? "unknown",
@@ -55,6 +94,10 @@ const filterUsableFormats = (formats: MediaFormat[]): MediaFormat[] =>
 
 export const extractMediaInfo = async (rawUrl: string): Promise<MediaInfo> => {
   const url = sanitizeUrl(rawUrl);
+
+  const cached = getCached(url);
+  if (cached) return cached;
+
   const binaryPath = await resolveBinaryPath();
   const ffmpegPath = await resolveFFmpegPath();
   const args = buildInfoArgs(url, ffmpegPath);
@@ -62,22 +105,15 @@ export const extractMediaInfo = async (rawUrl: string): Promise<MediaInfo> => {
   const result = await spawnWithTimeout(binaryPath, args, INFO_TIMEOUT_MS);
 
   if (result.exitCode !== 0) {
-    const stderr = result.stderr.trim();
-    if (stderr.includes("Unsupported URL") || stderr.includes("is not a valid URL")) {
-      throw Object.assign(new Error("URL is not supported by any extractor"), {
-        code: "UNSUPPORTED_URL",
-      });
-    }
-    throw Object.assign(new Error(stderr || "Failed to extract media information"), {
-      code: "EXTRACTION_FAILED",
-    });
+    const { code, message } = sanitizeYtdlpError(result.stderr.trim());
+    throw Object.assign(new Error(message), { code });
   }
 
   let parsed: YtdlpInfo;
   try {
     parsed = JSON.parse(result.stdout) as YtdlpInfo;
   } catch {
-    throw Object.assign(new Error("Failed to parse yt-dlp output"), {
+    throw Object.assign(new Error("Failed to parse media information"), {
       code: "EXTRACTION_FAILED",
     });
   }
@@ -91,7 +127,7 @@ export const extractMediaInfo = async (rawUrl: string): Promise<MediaInfo> => {
     });
   }
 
-  return {
+  const info: MediaInfo = {
     title: parsed.title ?? "Untitled",
     thumbnail: parsed.thumbnail ?? null,
     duration: parsed.duration ?? null,
@@ -99,4 +135,7 @@ export const extractMediaInfo = async (rawUrl: string): Promise<MediaInfo> => {
     formats,
     originalUrl: parsed.webpage_url ?? url,
   };
+
+  setCache(url, info);
+  return info;
 };
