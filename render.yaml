@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: veeyds-api
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: server
+    buildCommand: pnpm install --frozen-lockfile && bash scripts/install-bins.sh && pnpm run build
+    startCommand: node dist/index.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: ALLOWED_ORIGINS
+        value: https://veeyds.vercel.app
+      - key: API_BASE_URL
+        value: https://veeyds-api.onrender.com
