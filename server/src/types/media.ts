@@ -26,6 +26,10 @@ export const MediaInfoRequestSchema = z.object({
 export const MediaDownloadQuerySchema = z.object({
   url: z.string().url(),
   formatId: z.string(),
+  title: z.string().optional(),
+  ext: z.string().optional(),
+  hasAudio: z.enum(["true", "false"]).optional(),
+  hasVideo: z.enum(["true", "false"]).optional(),
 });
 
 export const ErrorResponseSchema = z.object({

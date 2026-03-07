@@ -37,28 +37,58 @@ export const getMediaInfo = async (c: Context): Promise<Response> => {
 };
 
 export const downloadMedia = async (c: Context): Promise<Response> => {
-  const { url, formatId } = c.get("validatedQuery") as MediaDownloadQuery;
+  const query = c.get("validatedQuery") as MediaDownloadQuery;
+  const { url, formatId } = query;
 
-  let info;
-  try {
-    info = await extractMediaInfo(url);
-  } catch (err) {
-    const { status, body } = handleExtractionError(err);
-    return c.json(body, status as Parameters<typeof c.json>[1]);
+  const hasAudioHint = query.hasAudio === "true";
+  const hasVideoHint = query.hasVideo === "true";
+  const titleHint = query.title;
+  const extHint = query.ext;
+
+  let title: string;
+  let ext: string;
+  let needsMuxing: boolean;
+
+  if (titleHint && extHint) {
+    title = titleHint;
+    ext = extHint;
+    needsMuxing = hasVideoHint && !hasAudioHint;
+  } else {
+    let info;
+    try {
+      info = await extractMediaInfo(url);
+    } catch (err) {
+      const { status, body } = handleExtractionError(err);
+      return c.json(body, status as Parameters<typeof c.json>[1]);
+    }
+
+    const format = info.formats.find((f) => f.id === formatId);
+    if (!format) {
+      return c.json(createErrorResponse("INVALID_INPUT", "Format not found"), 400);
+    }
+
+    title = info.title;
+    ext = format.ext;
+    needsMuxing = format.hasVideo && !format.hasAudio;
   }
 
-  const format = info.formats.find((f) => f.id === formatId);
-  if (!format) {
-    return c.json(createErrorResponse("INVALID_INPUT", "Format not found"), 400);
-  }
+  const muxFormatId = needsMuxing
+    ? `${formatId}+bestaudio[ext=m4a]/bestaudio`
+    : formatId;
+  const muxExt = needsMuxing ? "mp4" : ext;
 
   try {
-    const needsMuxing = format.hasVideo && !format.hasAudio;
     const download = needsMuxing ? streamMuxedDownload : streamDirectDownload;
-    const result = await download(url, formatId, info.title, format.ext);
+    const result = await download(url, muxFormatId, title, muxExt);
+
+    const asciiFilename = result.filename;
+    const rfc5987 = `UTF-8''${encodeURIComponent(result.filename)}`;
 
     c.header("Content-Type", result.contentType);
-    c.header("Content-Disposition", `attachment; filename="${result.filename}"`);
+    c.header(
+      "Content-Disposition",
+      `attachment; filename="${asciiFilename}"; filename*=${rfc5987}`,
+    );
     if (result.contentLength !== null) {
       c.header("Content-Length", String(result.contentLength));
     }

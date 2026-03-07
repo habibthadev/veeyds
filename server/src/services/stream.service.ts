@@ -34,13 +34,15 @@ const EXT_CONTENT_TYPES: Record<string, string> = {
 const getContentType = (ext: string): string =>
   EXT_CONTENT_TYPES[ext.toLowerCase()] ?? "application/octet-stream";
 
-const UNSAFE_FILENAME_CHARS = /[<>:"/\\|?*]/g;
+const UNSAFE_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/g;
 
 const sanitizeFilename = (title: string, ext: string): string => {
   const cleaned = title
+    .replace(/[^\x20-\x7E]/g, "")
     .replace(UNSAFE_FILENAME_CHARS, "_")
     .replace(/\s+/g, "_")
-    .slice(0, 200);
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 200) || "download";
   return `${cleaned}.${ext}`;
 };
 
