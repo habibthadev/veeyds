@@ -28,21 +28,7 @@ export const fetchMediaInfo = async (url: string): Promise<MediaInfo> => {
   return handleResponse(response, MediaInfoSchema);
 };
 
-export const getDownloadUrl = (
-  url: string,
-  formatId: string,
-  title: string,
-  ext: string,
-  hasAudio: boolean,
-  hasVideo: boolean,
-): string => {
-  const params = new URLSearchParams({
-    url,
-    formatId,
-    title,
-    ext,
-    hasAudio: String(hasAudio),
-    hasVideo: String(hasVideo),
-  });
+export const getDownloadUrl = (url: string, formatId: string): string => {
+  const params = new URLSearchParams({ url, formatId });
   return `${API_BASE}/media/download?${params.toString()}`;
 };
