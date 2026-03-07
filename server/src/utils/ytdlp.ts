@@ -71,28 +71,41 @@ export const buildDownloadArgs = (
   formatId: string,
   outputPath: string,
   ffmpegPath: string | null = null,
-): ReadonlyArray<string> => [
-  "-f",
-  formatId,
-  "--no-warnings",
-  "--no-playlist",
-  "-o",
-  outputPath,
-  ...withFFmpeg(ffmpegPath),
-  url,
-];
+): ReadonlyArray<string> => {
+  const isMuxed = formatId.includes("+");
+  return [
+    "-f",
+    formatId,
+    "--no-warnings",
+    "--no-playlist",
+    "--no-part",
+    ...(isMuxed ? ["--merge-output-format", "mp4"] : []),
+    "-o",
+    outputPath,
+    ...withFFmpeg(ffmpegPath),
+    url,
+  ];
+};
 
 export const buildStreamArgs = (
   url: string,
   formatId: string,
   ffmpegPath: string | null = null,
-): ReadonlyArray<string> => [
-  "-f",
-  formatId,
-  "--no-warnings",
-  "--no-playlist",
-  "-o",
-  "-",
-  ...withFFmpeg(ffmpegPath),
-  url,
-];
+): ReadonlyArray<string> => {
+  if (formatId.includes("+")) {
+    throw Object.assign(
+      new Error("Muxed formats cannot be streamed to stdout — use buildDownloadArgs"),
+      { code: "EXTRACTION_FAILED" },
+    );
+  }
+  return [
+    "-f",
+    formatId,
+    "--no-warnings",
+    "--no-playlist",
+    "-o",
+    "-",
+    ...withFFmpeg(ffmpegPath),
+    url,
+  ];
+};
