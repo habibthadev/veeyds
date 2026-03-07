@@ -8,6 +8,7 @@ import type { Readable } from "node:stream";
 import { resolveBinaryPath, resolveFFmpegPath, buildStreamArgs, buildDownloadArgs } from "../utils/ytdlp";
 import { sanitizeUrl } from "../utils/sanitize";
 import { spawnWithTimeout } from "../utils/process";
+import { sanitizeYtdlpError } from "../utils/errors";
 
 const DOWNLOAD_TIMEOUT_MS = 300_000;
 
@@ -86,6 +87,7 @@ export const streamDirectDownload = async (
   }, DOWNLOAD_TIMEOUT_MS);
 
   child.on("close", () => clearTimeout(timeout));
+  child.on("error", () => clearTimeout(timeout));
 
   if (!child.stdout) {
     throw Object.assign(new Error("Failed to capture stdout"), {
@@ -120,12 +122,23 @@ export const streamMuxedDownload = async (
 
   if (result.exitCode !== 0) {
     await unlink(tempPath).catch(() => {});
-    throw Object.assign(new Error(result.stderr || "Download failed"), {
+    const { code, message } = sanitizeYtdlpError(result.stderr.trim());
+    throw Object.assign(new Error(message), { code });
+  }
+
+  const fileStats = await stat(tempPath).catch(() => {
+    throw Object.assign(new Error("Output file not found after download"), {
+      code: "EXTRACTION_FAILED",
+    });
+  });
+
+  if (fileStats.size === 0) {
+    await unlink(tempPath).catch(() => {});
+    throw Object.assign(new Error("Downloaded file is empty"), {
       code: "EXTRACTION_FAILED",
     });
   }
 
-  const fileStats = await stat(tempPath);
   const readable = createReadStream(tempPath);
   const stream = nodeReadableToWeb(readable);
 
