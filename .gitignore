@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+
+# yt-dlp and ffmpeg binaries (installed at build time by scripts/install-bins.sh)
+server/bin/
+
+bin/
+
+# Environment files
+.env
+.env.local
+.env.production.local
+.env.development.local
+.env.test.local
+
+# Logs
+*.log
+logs/
+
+# Temp / mux files
+tmp/
+temp/
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Vite
+.vite/
+
+.agents/
+skills-lock.json
