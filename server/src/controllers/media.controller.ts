@@ -37,49 +37,30 @@ export const getMediaInfo = async (c: Context): Promise<Response> => {
 };
 
 export const downloadMedia = async (c: Context): Promise<Response> => {
-  const query = c.get("validatedQuery") as MediaDownloadQuery;
-  const { url, formatId } = query;
+  const { url, formatId } = c.get("validatedQuery") as MediaDownloadQuery;
 
-  const hasAudioHint = query.hasAudio === "true";
-  const hasVideoHint = query.hasVideo === "true";
-  const titleHint = query.title;
-  const extHint = query.ext;
-
-  let title: string;
-  let ext: string;
-  let needsMuxing: boolean;
-
-  if (titleHint && extHint) {
-    title = titleHint;
-    ext = extHint;
-    needsMuxing = hasVideoHint && !hasAudioHint;
-  } else {
-    let info;
-    try {
-      info = await extractMediaInfo(url);
-    } catch (err) {
-      const { status, body } = handleExtractionError(err);
-      return c.json(body, status as Parameters<typeof c.json>[1]);
-    }
-
-    const format = info.formats.find((f) => f.id === formatId);
-    if (!format) {
-      return c.json(createErrorResponse("INVALID_INPUT", "Format not found"), 400);
-    }
-
-    title = info.title;
-    ext = format.ext;
-    needsMuxing = format.hasVideo && !format.hasAudio;
+  let info;
+  try {
+    info = await extractMediaInfo(url);
+  } catch (err) {
+    const { status, body } = handleExtractionError(err);
+    return c.json(body, status as Parameters<typeof c.json>[1]);
   }
 
+  const format = info.formats.find((f) => f.id === formatId);
+  if (!format) {
+    return c.json(createErrorResponse("INVALID_INPUT", "Format not found"), 400);
+  }
+
+  const needsMuxing = format.hasVideo && !format.hasAudio;
   const muxFormatId = needsMuxing
-    ? `${formatId}+bestaudio[ext=m4a]/bestaudio`
+    ? `${formatId}+bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio`
     : formatId;
-  const muxExt = needsMuxing ? "mp4" : ext;
+  const muxExt = needsMuxing ? "mp4" : format.ext;
 
   try {
     const download = needsMuxing ? streamMuxedDownload : streamDirectDownload;
-    const result = await download(url, muxFormatId, title, muxExt);
+    const result = await download(url, muxFormatId, info.title, muxExt);
 
     const asciiFilename = result.filename;
     const rfc5987 = `UTF-8''${encodeURIComponent(result.filename)}`;
