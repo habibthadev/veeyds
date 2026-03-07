@@ -66,17 +66,8 @@ export const useDownload = () => {
   );
 
   const downloadItem = useCallback((item: QueueItem) => {
-    if (!item.selectedFormatId || !item.info) return;
-    const format = item.info.formats.find((f) => f.id === item.selectedFormatId);
-    if (!format) return;
-    const downloadUrl = getDownloadUrl(
-      item.url,
-      item.selectedFormatId,
-      item.info.title,
-      format.ext,
-      format.hasAudio,
-      format.hasVideo,
-    );
+    if (!item.selectedFormatId) return;
+    const downloadUrl = getDownloadUrl(item.url, item.selectedFormatId);
     const link = document.createElement("a");
     link.href = downloadUrl;
     link.download = "";
