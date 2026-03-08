@@ -1,6 +1,6 @@
 export const sanitizeYtdlpError = (stderr: string): { code: string; message: string } => {
   if (/sign in|not a bot|cookies|authentication required/i.test(stderr)) {
-    return { code: "EXTRACTION_FAILED", message: "This content requires authentication and cannot be downloaded." };
+    return { code: "EXTRACTION_FAILED", message: "This video cannot be downloaded from this server. It may be region-locked or require sign-in." };
   }
   if (/private video|this video is private/i.test(stderr)) {
     return { code: "EXTRACTION_FAILED", message: "This content is private." };
