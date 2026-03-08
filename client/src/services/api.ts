@@ -28,7 +28,36 @@ export const fetchMediaInfo = async (url: string): Promise<MediaInfo> => {
   return handleResponse(response, MediaInfoSchema);
 };
 
-export const getDownloadUrl = (url: string, formatId: string): string => {
+export const downloadMedia = async (url: string, formatId: string): Promise<void> => {
   const params = new URLSearchParams({ url, formatId });
-  return `${API_BASE}/media/download?${params.toString()}`;
+  const response = await fetch(`${API_BASE}/media/download?${params.toString()}`);
+
+  if (!response.ok) {
+    const errorData: ApiError = await response.json().catch(() => ({
+      error: { code: "INTERNAL", message: "Download failed" },
+    }));
+    throw errorData;
+  }
+
+  const disposition = response.headers.get("Content-Disposition");
+  let filename = "download";
+  if (disposition) {
+    const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/);
+    const asciiMatch = disposition.match(/filename="(.+?)"/);
+    if (utf8Match) {
+      filename = decodeURIComponent(utf8Match[1]);
+    } else if (asciiMatch) {
+      filename = asciiMatch[1];
+    }
+  }
+
+  const blob = await response.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(blobUrl);
 };
