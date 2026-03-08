@@ -5,7 +5,7 @@ services:
     region: oregon
     plan: free
     rootDir: server
-    buildCommand: pnpm install --frozen-lockfile && bash scripts/install-bins.sh && pnpm run build
+    buildCommand: pip install yt-dlp && pnpm install --frozen-lockfile && bash scripts/install-bins.sh && pnpm run build
     startCommand: node dist/index.js
     healthCheckPath: /health
     autoDeploy: true
