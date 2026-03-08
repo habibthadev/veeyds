@@ -52,15 +52,14 @@ export const downloadMedia = async (c: Context): Promise<Response> => {
     return c.json(createErrorResponse("INVALID_INPUT", "Format not found"), 400);
   }
 
-  const needsMuxing = format.needsMux;
-  const muxFormatId = needsMuxing
+  const resolvedFormatId = format.needsMux
     ? `${formatId}+bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio`
     : formatId;
-  const muxExt = needsMuxing ? "mp4" : format.ext;
+  const resolvedExt = format.needsMux ? "mp4" : format.ext;
 
   try {
-    const download = needsMuxing ? streamMuxedDownload : streamDirectDownload;
-    const result = await download(url, muxFormatId, info.title, muxExt);
+    const download = format.hasVideo ? streamMuxedDownload : streamDirectDownload;
+    const result = await download(url, resolvedFormatId, info.title, resolvedExt);
 
     const asciiFilename = result.filename;
     const rfc5987 = `UTF-8''${encodeURIComponent(result.filename)}`;
