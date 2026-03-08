@@ -7,6 +7,7 @@ export const MediaFormatSchema = z.object({
   filesize: z.number().nullable(),
   hasAudio: z.boolean(),
   hasVideo: z.boolean(),
+  needsMux: z.boolean(),
   label: z.string(),
 });
 
