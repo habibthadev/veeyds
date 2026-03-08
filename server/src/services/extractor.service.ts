@@ -66,9 +66,14 @@ interface YtdlpInfo {
 const isNoneCodec = (codec: string | undefined): boolean =>
   !codec || codec === "none";
 
+const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mkv", "flv", "avi", "mov", "ts"]);
+
 const hasResolution = (raw: YtdlpFormat): boolean =>
   (raw.width !== undefined && raw.width > 0 && raw.height !== undefined && raw.height > 0) ||
   (raw.resolution !== undefined && raw.resolution !== null && raw.resolution !== "audio only");
+
+const isVideoContainer = (ext: string | undefined): boolean =>
+  ext !== undefined && VIDEO_EXTENSIONS.has(ext.toLowerCase());
 
 const resolveExt = (raw: YtdlpFormat, hasVideo: boolean, hasAudio: boolean): string => {
   if (!hasVideo && hasAudio && (raw.ext === "mp4" || raw.ext === "m4a")) return "m4a";
@@ -80,7 +85,7 @@ const mapFormat = (raw: YtdlpFormat): MediaFormat => {
   const codecHasVideo = !isNoneCodec(raw.vcodec);
   const hasRes = hasResolution(raw);
 
-  const isPreMuxed = !codecHasVideo && !codecHasAudio && hasRes;
+  const isPreMuxed = !codecHasVideo && !codecHasAudio && hasRes && isVideoContainer(raw.ext);
   const hasVideo = codecHasVideo || isPreMuxed;
   const hasAudio = codecHasAudio || isPreMuxed;
   const needsMux = codecHasVideo && !codecHasAudio;
