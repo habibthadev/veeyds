@@ -66,16 +66,25 @@ interface YtdlpInfo {
 const isNoneCodec = (codec: string | undefined): boolean =>
   !codec || codec === "none";
 
+const hasResolution = (raw: YtdlpFormat): boolean =>
+  (raw.width !== undefined && raw.width > 0 && raw.height !== undefined && raw.height > 0) ||
+  (raw.resolution !== undefined && raw.resolution !== null && raw.resolution !== "audio only");
+
 const resolveExt = (raw: YtdlpFormat, hasVideo: boolean, hasAudio: boolean): string => {
   if (!hasVideo && hasAudio && (raw.ext === "mp4" || raw.ext === "m4a")) return "m4a";
   return raw.ext ?? "unknown";
 };
 
 const mapFormat = (raw: YtdlpFormat): MediaFormat => {
-  const hasAudio = !isNoneCodec(raw.acodec);
-  const hasVideo = !isNoneCodec(raw.vcodec);
-  const isDash = raw.protocol?.toLowerCase().includes("dash") ?? false;
-  const needsMux = hasVideo && (!hasAudio || isDash);
+  const codecHasAudio = !isNoneCodec(raw.acodec);
+  const codecHasVideo = !isNoneCodec(raw.vcodec);
+  const hasRes = hasResolution(raw);
+
+  const isPreMuxed = !codecHasVideo && !codecHasAudio && hasRes;
+  const hasVideo = codecHasVideo || isPreMuxed;
+  const hasAudio = codecHasAudio || isPreMuxed;
+  const needsMux = codecHasVideo && !codecHasAudio;
+
   const resolution =
     raw.width && raw.height ? `${raw.width}x${raw.height}` : raw.resolution ?? null;
   const filesize = raw.filesize ?? raw.filesize_approx ?? null;
