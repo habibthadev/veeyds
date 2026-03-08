@@ -85,6 +85,31 @@ export const QueueItemCard = ({
       </div>
     )}
 
+    {item.status === "downloading" && item.info && (
+      <div className="space-y-4">
+        <MediaPreview info={item.info} />
+        <div className="flex gap-3 items-center">
+          <div className="flex-1">
+            <div
+              className="h-1.5 rounded-full overflow-hidden"
+              style={{ backgroundColor: "var(--color-border)" }}
+            >
+              <motion.div
+                className="h-full rounded-full"
+                style={{ backgroundColor: "var(--color-accent)" }}
+                initial={{ width: "5%" }}
+                animate={{ width: "85%" }}
+                transition={{ duration: 30, ease: "linear" }}
+              />
+            </div>
+            <p className="text-xs mt-2" style={{ color: "var(--color-text-tertiary)" }}>
+              Downloading...
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
+
     {item.status === "error" && (
       <div
         className="p-3 rounded-lg text-sm"
