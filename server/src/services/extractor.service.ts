@@ -50,6 +50,7 @@ interface YtdlpFormat {
   filesize_approx?: number;
   acodec?: string;
   vcodec?: string;
+  protocol?: string;
 }
 
 interface YtdlpInfo {
@@ -73,6 +74,8 @@ const resolveExt = (raw: YtdlpFormat, hasVideo: boolean, hasAudio: boolean): str
 const mapFormat = (raw: YtdlpFormat): MediaFormat => {
   const hasAudio = !isNoneCodec(raw.acodec);
   const hasVideo = !isNoneCodec(raw.vcodec);
+  const isDash = raw.protocol?.toLowerCase().includes("dash") ?? false;
+  const needsMux = hasVideo && (!hasAudio || isDash);
   const resolution =
     raw.width && raw.height ? `${raw.width}x${raw.height}` : raw.resolution ?? null;
   const filesize = raw.filesize ?? raw.filesize_approx ?? null;
@@ -85,6 +88,7 @@ const mapFormat = (raw: YtdlpFormat): MediaFormat => {
     filesize,
     hasAudio,
     hasVideo,
+    needsMux,
     label: buildFormatLabel({ ext, resolution, hasAudio, hasVideo, filesize }),
   };
 };
