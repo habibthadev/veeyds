@@ -13,6 +13,22 @@ mkdir -p "$BIN_DIR"
 # ---------------------------------------------------------------------------
 
 install_ytdlp() {
+  if command -v yt-dlp >/dev/null 2>&1; then
+    echo "yt-dlp: found on PATH ($(yt-dlp --version))"
+    return 0
+  fi
+
+  if command -v pip3 >/dev/null 2>&1 || command -v pip >/dev/null 2>&1; then
+    echo "yt-dlp: installing via pip..."
+    local pip_cmd
+    pip_cmd="$(command -v pip3 2>/dev/null || command -v pip)"
+    "$pip_cmd" install --upgrade yt-dlp
+    if command -v yt-dlp >/dev/null 2>&1; then
+      echo "yt-dlp: installed via pip ($(yt-dlp --version))"
+      return 0
+    fi
+  fi
+
   local binary="$BIN_DIR/yt-dlp"
 
   if [ -f "$binary" ] && [ -x "$binary" ]; then
