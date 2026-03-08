@@ -5,7 +5,7 @@ import { spawnWithTimeout } from "../utils/process";
 import { buildFormatLabel } from "../utils/format";
 import { sanitizeYtdlpError } from "../utils/errors";
 
-const INFO_TIMEOUT_MS = 30_000;
+const INFO_TIMEOUT_MS = 60_000;
 const CACHE_TTL_MS = 2 * 60 * 1000;
 const CACHE_MAX_SIZE = 100;
 
