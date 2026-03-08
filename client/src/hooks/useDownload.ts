@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import type { QueueItem, MediaInfo } from "../types/media";
-import { fetchMediaInfo, getDownloadUrl } from "../services/api";
+import { fetchMediaInfo, downloadMedia } from "../services/api";
 
 let nextId = 0;
 const generateId = (): string => {
@@ -65,16 +65,24 @@ export const useDownload = () => {
     [updateItem],
   );
 
-  const downloadItem = useCallback((item: QueueItem) => {
-    if (!item.selectedFormatId) return;
-    const downloadUrl = getDownloadUrl(item.url, item.selectedFormatId);
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = "";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }, []);
+  const downloadItem = useCallback(
+    async (item: QueueItem) => {
+      if (!item.selectedFormatId) return;
+
+      updateItem(item.id, { status: "downloading", error: null });
+
+      try {
+        await downloadMedia(item.url, item.selectedFormatId);
+        updateItem(item.id, { status: "ready" });
+      } catch (err) {
+        const message =
+          (err as { error?: { message?: string } })?.error?.message ??
+          "Download failed";
+        updateItem(item.id, { status: "error", error: message });
+      }
+    },
+    [updateItem],
+  );
 
   const removeItem = useCallback((id: string) => {
     setQueue((prev) => prev.filter((item) => item.id !== id));
