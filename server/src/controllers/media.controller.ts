@@ -13,6 +13,10 @@ const handleExtractionError = (err: unknown): { status: number; body: ReturnType
   const statusMap: Record<string, number> = {
     UNSUPPORTED_URL: 400,
     INVALID_INPUT: 400,
+    FORBIDDEN: 403,
+    AGE_RESTRICTED: 403,
+    GEO_RESTRICTED: 403,
+    BOT_DETECTED: 422,
     RATE_LIMITED: 429,
     TIMEOUT: 504,
     EXTRACTION_FAILED: 422,
@@ -58,8 +62,17 @@ export const downloadMedia = async (c: Context): Promise<Response> => {
   const resolvedExt = format.needsMux ? "mp4" : format.ext;
 
   try {
-    const download = format.hasVideo ? streamMuxedDownload : streamDirectDownload;
-    const result = await download(url, resolvedFormatId, info.title, resolvedExt);
+    let result;
+
+    if (format.needsMux) {
+      result = await streamMuxedDownload(url, resolvedFormatId, info.title, resolvedExt);
+    } else {
+      try {
+        result = await streamDirectDownload(url, resolvedFormatId, info.title, resolvedExt);
+      } catch {
+        result = await streamMuxedDownload(url, resolvedFormatId, info.title, resolvedExt);
+      }
+    }
 
     const asciiFilename = result.filename;
     const rfc5987 = `UTF-8''${encodeURIComponent(result.filename)}`;

@@ -24,6 +24,9 @@ vi.mock("../../services/api", () => ({
 }));
 
 describe("useDownload", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
   it("starts with empty queue", () => {
     const { result } = renderHook(() => useDownload());
     expect(result.current.queue).toHaveLength(0);

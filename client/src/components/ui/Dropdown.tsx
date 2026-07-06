@@ -65,7 +65,10 @@ export const Dropdown = ({
         position="popper"
         sideOffset={4}
       >
-        <Select.Viewport className="p-1.5">
+        <Select.Viewport
+          className="p-1.5"
+          style={{ maxHeight: 240, overflowY: "auto" }}
+        >
           {options.map((option) => (
             <Select.Item
               key={option.value}

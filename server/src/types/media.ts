@@ -34,6 +34,10 @@ export const ErrorResponseSchema = z.object({
     code: z.enum([
       "UNSUPPORTED_URL",
       "EXTRACTION_FAILED",
+      "FORBIDDEN",
+      "AGE_RESTRICTED",
+      "GEO_RESTRICTED",
+      "BOT_DETECTED",
       "RATE_LIMITED",
       "INVALID_INPUT",
       "TIMEOUT",

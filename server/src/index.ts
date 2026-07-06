@@ -4,6 +4,7 @@ import { swaggerUI } from "@hono/swagger-ui";
 import pino from "pino";
 import { corsMiddleware } from "./middleware/cors.js";
 import { media } from "./routes/media.js";
+import { resolveBinaryPath, resolveFFmpegPath, resolveDenoPath } from "./utils/ytdlp.js";
 import type { ErrorCode } from "./types/media.js";
 
 const logger = pino(
@@ -63,39 +64,9 @@ app.get("/api/openapi.json", (c) => {
             },
           },
           responses: {
-            "200": {
-              description: "Media information extracted successfully",
-              content: {
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    properties: {
-                      title: { type: "string" },
-                      thumbnail: { type: "string", nullable: true },
-                      duration: { type: "number", nullable: true },
-                      platform: { type: "string" },
-                      formats: {
-                        type: "array",
-                        items: {
-                          type: "object",
-                          properties: {
-                            id: { type: "string" },
-                            ext: { type: "string" },
-                            resolution: { type: "string", nullable: true },
-                            filesize: { type: "number", nullable: true },
-                            hasAudio: { type: "boolean" },
-                            hasVideo: { type: "boolean" },
-                            label: { type: "string" },
-                          },
-                        },
-                      },
-                      originalUrl: { type: "string" },
-                    },
-                  },
-                },
-              },
-            },
+            "200": { description: "Media information extracted successfully" },
             "400": { description: "Invalid input or unsupported URL" },
+            "403": { description: "Access forbidden (region-locked or requires auth)" },
             "422": { description: "Extraction failed" },
             "429": { description: "Rate limit exceeded" },
           },
@@ -105,25 +76,13 @@ app.get("/api/openapi.json", (c) => {
         get: {
           summary: "Download media file",
           parameters: [
-            {
-              name: "url",
-              in: "query",
-              required: true,
-              schema: { type: "string", format: "uri" },
-            },
-            {
-              name: "formatId",
-              in: "query",
-              required: true,
-              schema: { type: "string" },
-            },
+            { name: "url", in: "query", required: true, schema: { type: "string", format: "uri" } },
+            { name: "formatId", in: "query", required: true, schema: { type: "string" } },
           ],
           responses: {
-            "200": {
-              description: "Media file stream",
-              content: { "application/octet-stream": { schema: { type: "string", format: "binary" } } },
-            },
+            "200": { description: "Media file stream" },
             "400": { description: "Invalid input" },
+            "403": { description: "Access forbidden" },
             "422": { description: "Download failed" },
             "429": { description: "Rate limit exceeded" },
           },
@@ -164,9 +123,40 @@ app.notFound((c) => {
 
 const port = Number(process.env.PORT ?? 3001);
 
-serve({ fetch: app.fetch, port }, () => {
-  logger.info(`Veeyds server running on port ${port}`);
-});
+const start = async () => {
+  try {
+    const ytdlpPath = await resolveBinaryPath();
+    logger.info(`yt-dlp: ${ytdlpPath}`);
+  } catch {
+    logger.error("yt-dlp binary not found. Install it and ensure it is on PATH.");
+    process.exit(1);
+  }
+
+  const ffmpegPath = await resolveFFmpegPath();
+  if (ffmpegPath) {
+    logger.info(`ffmpeg: ${ffmpegPath}`);
+  } else {
+    logger.warn("ffmpeg not found — muxed downloads will fail. Install ffmpeg.");
+  }
+
+  const denoPath = await resolveDenoPath();
+  if (denoPath) {
+    logger.info(`deno: ${denoPath} (JS runtime for YouTube n-challenge)`);
+  } else {
+    logger.warn("deno not found — YouTube extraction may fail for some videos.");
+  }
+
+  const cookiesPath = process.env.COOKIES_FILE;
+  if (cookiesPath) {
+    logger.info(`cookies: ${cookiesPath}`);
+  }
+
+  serve({ fetch: app.fetch, port }, () => {
+    logger.info(`Veeyds server running on port ${port}`);
+  });
+};
+
+start();
 
 export { app };
 

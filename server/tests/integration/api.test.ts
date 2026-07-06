@@ -8,9 +8,11 @@ vi.mock("@hono/node-server", () => ({
 vi.mock("../../src/utils/ytdlp.js", () => ({
   resolveBinaryPath: vi.fn().mockResolvedValue("/usr/bin/yt-dlp"),
   resolveFFmpegPath: vi.fn().mockResolvedValue("/usr/bin/ffmpeg"),
+  resolveDenoPath: vi.fn().mockResolvedValue(null),
   buildInfoArgs: vi.fn((url: string) => ["--dump-json", url]),
   buildDownloadArgs: vi.fn((_u: string, _f: string, _o: string) => []),
   buildStreamArgs: vi.fn((_u: string, _f: string) => []),
+  getPlayerClients: vi.fn(() => "web,mweb,android"),
 }));
 
 vi.mock("../../src/utils/process.js", () => ({

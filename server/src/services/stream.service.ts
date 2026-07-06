@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Readable } from "node:stream";
-import { resolveBinaryPath, resolveFFmpegPath, buildStreamArgs, buildDownloadArgs } from "../utils/ytdlp";
+import { resolveBinaryPath, resolveFFmpegPath, buildStreamArgs, buildDownloadArgs, getPlayerClients } from "../utils/ytdlp";
 import { sanitizeUrl } from "../utils/sanitize";
 import { spawnWithTimeout } from "../utils/process";
 import { sanitizeYtdlpError } from "../utils/errors";
@@ -75,7 +75,8 @@ export const streamDirectDownload = async (
   const url = sanitizeUrl(rawUrl);
   const binaryPath = await resolveBinaryPath();
   const ffmpegPath = await resolveFFmpegPath();
-  const args = buildStreamArgs(url, formatId, ffmpegPath);
+  const clients = getPlayerClients(false);
+  const args = buildStreamArgs(url, formatId, { ffmpegPath, clients });
 
   const child = spawn(binaryPath, [...args], {
     stdio: ["ignore", "pipe", "pipe"],
@@ -105,6 +106,51 @@ export const streamDirectDownload = async (
   };
 };
 
+const downloadToFile = async (
+  binaryPath: string,
+  url: string,
+  formatId: string,
+  outputPath: string,
+  ffmpegPath: string | null,
+  clients: string,
+): Promise<void> => {
+  const args = buildDownloadArgs(url, formatId, outputPath, { ffmpegPath, clients });
+  const result = await spawnWithTimeout(binaryPath, args, DOWNLOAD_TIMEOUT_MS);
+
+  if (result.exitCode !== 0) {
+    await unlink(outputPath).catch(() => {});
+    const { code, message } = sanitizeYtdlpError(result.stderr.trim());
+    throw Object.assign(new Error(message), { code });
+  }
+
+  const stats = await stat(outputPath).catch(() => null);
+  if (!stats || stats.size === 0) {
+    await unlink(outputPath).catch(() => {});
+    throw Object.assign(new Error("Output file missing or empty"), { code: "EXTRACTION_FAILED" });
+  }
+};
+
+const streamTempFile = (
+  tempPath: string,
+  title: string,
+  ext: string,
+  contentLength: number,
+): StreamResult => {
+  const readable = createReadStream(tempPath);
+  const stream = nodeReadableToWeb(readable);
+
+  readable.on("close", () => {
+    unlink(tempPath).catch(() => {});
+  });
+
+  return {
+    stream,
+    contentType: getContentType(ext),
+    filename: sanitizeFilename(title, ext),
+    contentLength,
+  };
+};
+
 export const streamMuxedDownload = async (
   rawUrl: string,
   formatId: string,
@@ -114,44 +160,27 @@ export const streamMuxedDownload = async (
   const url = sanitizeUrl(rawUrl);
   const binaryPath = await resolveBinaryPath();
   const ffmpegPath = await resolveFFmpegPath();
-  const tempId = randomUUID();
-  const tempPath = join(tmpdir(), `veeyds-${tempId}.${ext}`);
-  const args = buildDownloadArgs(url, formatId, tempPath, ffmpegPath);
+  const clients = getPlayerClients(false);
+  const tempPath = join(tmpdir(), `veeyds-${randomUUID()}.${ext}`);
 
-  const result = await spawnWithTimeout(binaryPath, args, DOWNLOAD_TIMEOUT_MS);
-
-  if (result.exitCode !== 0) {
-    await unlink(tempPath).catch(() => {});
-    const { code, message } = sanitizeYtdlpError(result.stderr.trim());
-    throw Object.assign(new Error(message), { code });
+  try {
+    await downloadToFile(binaryPath, url, formatId, tempPath, ffmpegPath, clients);
+  } catch (err) {
+    if (formatId.includes("+")) {
+      const fallbackPath = join(tmpdir(), `veeyds-${randomUUID()}.${ext}`);
+      try {
+        await downloadToFile(binaryPath, url, "best[ext=mp4]/best", fallbackPath, ffmpegPath, clients);
+        const fallbackStats = await stat(fallbackPath);
+        if (fallbackStats.size > 0) {
+          return streamTempFile(fallbackPath, title, ext, fallbackStats.size);
+        }
+      } catch {
+        await unlink(fallbackPath).catch(() => {});
+      }
+    }
+    throw err;
   }
 
-  const fileStats = await stat(tempPath).catch(() => {
-    throw Object.assign(new Error("Output file not found after download"), {
-      code: "EXTRACTION_FAILED",
-    });
-  });
-
-  if (fileStats.size === 0) {
-    await unlink(tempPath).catch(() => {});
-    throw Object.assign(new Error("Downloaded file is empty"), {
-      code: "EXTRACTION_FAILED",
-    });
-  }
-
-  const readable = createReadStream(tempPath);
-  const stream = nodeReadableToWeb(readable);
-
-  readable.on("close", () => {
-    unlink(tempPath).catch(() => {});
-  });
-
-  const filename = sanitizeFilename(title, ext);
-
-  return {
-    stream,
-    contentType: getContentType(ext),
-    filename,
-    contentLength: fileStats.size,
-  };
+  const fileStats = await stat(tempPath);
+  return streamTempFile(tempPath, title, ext, fileStats.size);
 };

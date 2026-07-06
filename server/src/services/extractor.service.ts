@@ -1,5 +1,5 @@
 import type { MediaFormat, MediaInfo } from "../types/media";
-import { resolveBinaryPath, resolveFFmpegPath, buildInfoArgs } from "../utils/ytdlp";
+import { resolveBinaryPath, resolveFFmpegPath, buildInfoArgs, getPlayerClients } from "../utils/ytdlp";
 import { sanitizeUrl } from "../utils/sanitize";
 import { spawnWithTimeout } from "../utils/process";
 import { buildFormatLabel } from "../utils/format";
@@ -8,6 +8,7 @@ import { sanitizeYtdlpError } from "../utils/errors";
 const INFO_TIMEOUT_MS = 60_000;
 const CACHE_TTL_MS = 2 * 60 * 1000;
 const CACHE_MAX_SIZE = 100;
+const RETRYABLE_CODES = new Set(["FORBIDDEN", "BOT_DETECTED", "RATE_LIMITED"]);
 
 interface CacheEntry {
   data: MediaInfo;
@@ -110,15 +111,10 @@ const mapFormat = (raw: YtdlpFormat): MediaFormat => {
 const filterUsableFormats = (formats: MediaFormat[]): MediaFormat[] =>
   formats.filter((f) => f.hasAudio || f.hasVideo);
 
-export const extractMediaInfo = async (rawUrl: string): Promise<MediaInfo> => {
-  const url = sanitizeUrl(rawUrl);
-
-  const cached = getCached(url);
-  if (cached) return cached;
-
+const doExtract = async (url: string, clients: string): Promise<MediaInfo> => {
   const binaryPath = await resolveBinaryPath();
   const ffmpegPath = await resolveFFmpegPath();
-  const args = buildInfoArgs(url, ffmpegPath);
+  const args = buildInfoArgs(url, { ffmpegPath, clients });
 
   const result = await spawnWithTimeout(binaryPath, args, INFO_TIMEOUT_MS);
 
@@ -145,7 +141,7 @@ export const extractMediaInfo = async (rawUrl: string): Promise<MediaInfo> => {
     });
   }
 
-  const info: MediaInfo = {
+  return {
     title: parsed.title ?? "Untitled",
     thumbnail: parsed.thumbnail ?? null,
     duration: parsed.duration ?? null,
@@ -153,7 +149,34 @@ export const extractMediaInfo = async (rawUrl: string): Promise<MediaInfo> => {
     formats,
     originalUrl: parsed.webpage_url ?? url,
   };
+};
 
-  setCache(url, info);
-  return info;
+export const extractMediaInfo = async (rawUrl: string): Promise<MediaInfo> => {
+  const url = sanitizeUrl(rawUrl);
+
+  const cached = getCached(url);
+  if (cached) return cached;
+
+  const clientSets = [getPlayerClients(false), getPlayerClients(true)];
+
+  for (let i = 0; i < clientSets.length; i++) {
+    try {
+      const info = await doExtract(url, clientSets[i]!);
+      setCache(url, info);
+      return info;
+    } catch (err) {
+      const error = err as Error & { code?: string };
+      const isLast = i === clientSets.length - 1;
+
+      if (!isLast && error.code && RETRYABLE_CODES.has(error.code)) {
+        continue;
+      }
+
+      throw err;
+    }
+  }
+
+  throw Object.assign(new Error("Failed to extract media information"), {
+    code: "EXTRACTION_FAILED",
+  });
 };
