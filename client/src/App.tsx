@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
+import { HelmetProvider } from "react-helmet-async";
 import { Header } from "./components/layout/Header";
 import { Footer } from "./components/layout/Footer";
 import { ToastProvider } from "./components/ui/Toast";
@@ -19,9 +20,10 @@ const queryClient = new QueryClient({
 });
 
 export const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ToastProvider>
-      <BrowserRouter>
+  <HelmetProvider>
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <BrowserRouter>
         <ErrorBoundary>
           <div className="flex flex-col min-h-screen">
             <Header />
@@ -40,4 +42,5 @@ export const App = () => (
       </BrowserRouter>
     </ToastProvider>
   </QueryClientProvider>
+  </HelmetProvider>
 );

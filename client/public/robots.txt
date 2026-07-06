@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://veeyds.vercel.app/sitemap.xml

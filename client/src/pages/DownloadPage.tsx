@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { UrlInput } from "../components/download/UrlInput";
 import { DownloadQueue } from "../components/download/DownloadQueue";
@@ -22,6 +23,11 @@ export const DownloadPage = () => {
   }, [searchParams, addUrl, setSearchParams]);
 
   return (
+    <>
+    <Helmet>
+      <title>Download Video & Audio - Veeyds Free Media Downloader</title>
+      <meta name="description" content="Paste any URL from YouTube, Instagram, TikTok, Facebook, or 10+ platforms to download videos and audio for free. No signup needed. Multiple formats available." />
+    </Helmet>
     <motion.div
       className="pt-28 pb-16 px-6"
       style={{ minHeight: "calc(100vh - 80px)" }}
@@ -86,5 +92,6 @@ export const DownloadPage = () => {
         )}
       </div>
     </motion.div>
+    </>
   );
 };
