@@ -12,7 +12,5 @@ bin
 Thumbs.db
 tests
 vitest.config.ts
-tsup.config.ts
 eslint.config.js
 .prettierrc
-tsconfig.json

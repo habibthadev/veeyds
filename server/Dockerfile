@@ -23,7 +23,7 @@ COPY . .
 
 RUN bash scripts/install-bins.sh
 
-RUN pnpm exec tsup
+RUN pnpm run build
 
 RUN pnpm prune --prod
 
