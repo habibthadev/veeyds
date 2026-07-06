@@ -2,6 +2,23 @@ import { useState, useCallback } from "react";
 import type { QueueItem, MediaInfo } from "../types/media";
 import { fetchMediaInfo, downloadMedia } from "../services/api";
 
+const STORAGE_KEY = "veeyds-queue";
+
+const loadQueue = (): QueueItem[] => {
+  try {
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as QueueItem[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveQueue = (queue: QueueItem[]): void => {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+  } catch {}
+};
+
 let nextId = 0;
 const generateId = (): string => {
   nextId += 1;
@@ -9,17 +26,25 @@ const generateId = (): string => {
 };
 
 export const useDownload = () => {
-  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [queue, setQueue] = useState<QueueItem[]>(loadQueue);
+
+  const persist = useCallback((fn: (prev: QueueItem[]) => QueueItem[]) => {
+    setQueue((prev) => {
+      const next = fn(prev);
+      saveQueue(next);
+      return next;
+    });
+  }, []);
 
   const updateItem = useCallback(
     (id: string, updates: Partial<QueueItem>) => {
-      setQueue((prev) =>
+      persist((prev) =>
         prev.map((item) =>
           item.id === id ? { ...item, ...updates } : item,
         ),
       );
     },
-    [],
+    [persist],
   );
 
   const addUrl = useCallback(
@@ -34,7 +59,7 @@ export const useDownload = () => {
         error: null,
       };
 
-      setQueue((prev) => [...prev, newItem]);
+      persist((prev) => [...prev, newItem]);
 
       try {
         const info: MediaInfo = await fetchMediaInfo(url);
@@ -85,10 +110,11 @@ export const useDownload = () => {
   );
 
   const removeItem = useCallback((id: string) => {
-    setQueue((prev) => prev.filter((item) => item.id !== id));
-  }, []);
+    persist((prev) => prev.filter((item) => item.id !== id));
+  }, [persist]);
 
   const clearQueue = useCallback(() => {
+    saveQueue([]);
     setQueue([]);
   }, []);
 

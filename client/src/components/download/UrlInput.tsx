@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Icon } from "@iconify/react";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { detectPlatform } from "../../utils/format";
+import { getPlatformInfo } from "../../constants/platforms";
 
 interface UrlInputProps {
   onSubmit: (url: string) => void;
@@ -65,7 +67,13 @@ export const UrlInput = ({ onSubmit, disabled }: UrlInputProps) => {
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] as const }}
               >
-                <Badge variant="accent">{platform}</Badge>
+                <Badge variant="accent" className="flex items-center gap-1">
+                  {(() => {
+                    const pi = getPlatformInfo(platform ?? "");
+                    return pi ? <Icon icon={pi.icon} className="w-4 h-4" {...(pi.color ? { color: pi.color } : {})} /> : null;
+                  })()}
+                  {platform}
+                </Badge>
               </motion.div>
             )}
           </AnimatePresence>

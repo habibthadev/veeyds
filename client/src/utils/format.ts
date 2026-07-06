@@ -1,3 +1,5 @@
+import { PLATFORMS } from "../constants/platforms";
+
 export const formatFileSize = (bytes: number | null): string => {
   if (bytes === null || bytes <= 0) return "Unknown";
   const units = ["B", "KB", "MB", "GB"];
@@ -21,24 +23,8 @@ export const formatDuration = (seconds: number | null): string => {
 };
 
 export const detectPlatform = (url: string): string | null => {
-  const patterns: Record<string, RegExp> = {
-    YouTube: /(?:youtube\.com|youtu\.be)/i,
-    Instagram: /instagram\.com/i,
-    Facebook: /(?:facebook\.com|fb\.watch)/i,
-    TikTok: /tiktok\.com/i,
-    Twitter: /(?:twitter\.com|x\.com)/i,
-    Snapchat: /snapchat\.com/i,
-    Reddit: /reddit\.com/i,
-    Vimeo: /vimeo\.com/i,
-    Twitch: /twitch\.tv/i,
-    Pinterest: /pinterest\.com/i,
-    Dailymotion: /dailymotion\.com/i,
-    SoundCloud: /soundcloud\.com/i,
-    LinkedIn: /linkedin\.com/i,
-    Tumblr: /tumblr\.com/i,
-  };
-  for (const [name, pattern] of Object.entries(patterns)) {
-    if (pattern.test(url)) return name;
+  for (const p of PLATFORMS) {
+    if (p.pattern.test(url)) return p.key;
   }
   return null;
 };

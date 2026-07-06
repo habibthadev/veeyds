@@ -1,19 +1,17 @@
-const PLATFORMS = [
-  "YouTube", "Instagram", "Facebook", "TikTok", "X / Twitter",
-  "Snapchat", "Reddit", "Vimeo", "Twitch", "Pinterest",
-  "Dailymotion", "SoundCloud", "LinkedIn", "Tumblr",
-];
+import { Icon } from "@iconify/react";
+import { PLATFORMS, type PlatformInfo } from "../../constants/platforms";
 
-const PlatformCard = ({ name }: { name: string }) => (
+const PlatformCard = ({ platform }: { platform: PlatformInfo }) => (
   <div
-    className="flex-shrink-0 px-5 py-3 rounded-xl text-sm font-medium whitespace-nowrap transition-colors"
+    className="flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium whitespace-nowrap transition-colors"
     style={{
       backgroundColor: "var(--color-surface)",
       border: "1px solid var(--color-border)",
       fontFamily: "var(--font-body)",
     }}
   >
-    {name}
+    <Icon icon={platform.icon} className="w-5 h-5" {...(platform.color ? { color: platform.color } : {})} />
+    {platform.displayName}
   </div>
 );
 
@@ -29,8 +27,8 @@ export const PlatformGrid = () => (
         style={{ background: "linear-gradient(to left, var(--color-bg), transparent)" }}
       />
       <div className="marquee-track">
-        {[...PLATFORMS, ...PLATFORMS].map((name, i) => (
-          <PlatformCard key={`${name}-${i}`} name={name} />
+        {[...PLATFORMS, ...PLATFORMS].map((p, i) => (
+          <PlatformCard key={`${p.key}-${i}`} platform={p} />
         ))}
       </div>
     </div>

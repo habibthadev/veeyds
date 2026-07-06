@@ -31,7 +31,7 @@ export const QueueItemCard = ({
     exit={{ opacity: 0, y: -20, scale: 0.95 }}
     transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
   >
-    <div className="flex items-start justify-between mb-3">
+    <div className="flex items-start justify-between mb-6">
       <p
         className="text-xs truncate max-w-[70%]"
         style={{ color: "var(--color-text-tertiary)", fontFamily: "var(--font-mono)" }}
@@ -64,19 +64,18 @@ export const QueueItemCard = ({
     )}
 
     {item.status === "ready" && item.info && (
-      <div className="space-y-4">
+      <div className="space-y-5">
         <MediaPreview info={item.info} />
-        <div className="flex gap-3 items-end">
-          <div className="flex-1">
-            <FormatSelector
-              formats={item.info.formats}
-              selectedFormatId={item.selectedFormatId}
-              onSelect={onSelectFormat}
-            />
-          </div>
+        <div className="space-y-3">
+          <FormatSelector
+            formats={item.info.formats}
+            selectedFormatId={item.selectedFormatId}
+            onSelect={onSelectFormat}
+          />
           <Button
             onClick={onDownload}
             disabled={!item.selectedFormatId}
+            className="w-full"
             size="md"
           >
             Download

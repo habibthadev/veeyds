@@ -2,7 +2,7 @@
 
 A media downloader web app that lets users download videos and audio from popular social platforms by pasting a URL. No login. No accounts. No ads.
 
-Built with a **React frontend** (Vite, TypeScript, Tailwind CSS v4) and a **Hono backend** (Node.js), deployable independently — frontend on Vercel, backend on Render.
+Built with a **React frontend** (Vite, TypeScript, Tailwind CSS v4) and a **Hono backend** (Node.js), deployable independently — frontend on Vercel, backend on Fly.io.
 
 ---
 
@@ -37,7 +37,7 @@ YouTube, Instagram, Facebook, TikTok, X (Twitter), Snapchat, Reddit, Vimeo, Twit
 | Logging   | Pino (JSON in production, pretty in development)                |
 | Validation| Zod v4 (shared schemas between request/response)                |
 | Testing   | Vitest (frontend: 22 tests, backend: 34 tests)                  |
-| Deploy    | Vercel (frontend), Render (backend)                             |
+| Deploy    | Vercel (frontend), Fly.io (backend)                             |
 
 ---
 
@@ -77,9 +77,11 @@ veeyds/
 │   │   └── integration/      # api.test.ts
 │   ├── scripts/
 │   │   └── install-bins.sh   # Downloads yt-dlp and ffmpeg static binaries
+│   ├── Dockerfile             # Multi-stage Docker image for Fly.io
+│   ├── fly.toml               # Fly.io deployment configuration
 │   └── .env.example
 │
-├── render.yaml               # Render infrastructure-as-code (backend)
+├── render.yaml               # Render infrastructure-as-code (backend) (legacy)
 ├── .gitignore
 └── .node-version             # Pins Node 22
 ```
@@ -242,7 +244,7 @@ Content-Length: 52428800  (only for muxed downloads)
 
 ### `GET /health`
 
-Returns server health status. Used by Render for health checks.
+Returns server health status. Used by Fly.io for health checks.
 
 ```json
 { "status": "ok" }
@@ -289,17 +291,25 @@ pnpm test
 
 ## Deployment
 
-### Backend → Render
+### Backend → Fly.io
 
-The `render.yaml` at the repo root defines the service. Connect the repository on Render and set the following environment variables in the Render dashboard:
+The `server/fly.toml` at configures the service. Deploy with the Fly.io CLI:
 
-| Variable          | Value                              |
-|-------------------|------------------------------------|
-| `NODE_ENV`        | `production`                       |
-| `ALLOWED_ORIGINS` | `https://veeyds.vercel.app`        |
-| `API_BASE_URL`    | `https://veeyds-api.onrender.com`  |
+```bash
+cd server
+fly launch --generate-name --no-deploy   # first time only
+fly deploy
+```
 
-The build command (`pnpm install && bash scripts/install-bins.sh && pnpm run build`) downloads yt-dlp and ffmpeg static binaries into `server/bin/` automatically during every deploy.
+Set environment variables for production (or edit `server/fly.toml`):
+
+```bash
+fly secrets set NODE_ENV=production
+fly secrets set ALLOWED_ORIGINS=https://veeyds.vercel.app
+fly secrets set API_BASE_URL=https://veeyds-api.fly.dev
+```
+
+The multi-stage `Dockerfile` installs Python, pip, and `ffmpeg` via apt, installs `yt-dlp` via pip (for YouTube JS interpreter support), then downloads the static binaries via `scripts/install-bins.sh` as a fallback — all during the Docker build.
 
 ### Frontend → Vercel
 
@@ -310,7 +320,7 @@ Connect the repository on Vercel and configure:
 | Root Directory        | `client`                                   |
 | Build Command         | `pnpm run build`                           |
 | Output Directory      | `dist`                                     |
-| `VITE_API_URL` (env)  | `https://veeyds-api.onrender.com`          |
+| `VITE_API_URL` (env)  | `https://veeyds-api.fly.dev`               |
 
 The `client/vercel.json` handles SPA routing rewrites and sets security headers automatically.
 
